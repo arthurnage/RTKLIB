@@ -8,3 +8,6 @@ Release
 Release_Build
 Debug_Build
 __history
+.DS_Store
+*.pos
+*.pos.stat
