@@ -1,6 +1,5 @@
 *.o
 *.swp
-*.obs
 *.ini
 *.local
 *.AppleDouble
