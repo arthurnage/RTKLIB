@@ -124,7 +124,8 @@ configs = [a[:-1] for a in open('test/config.txt').readlines()]
 
 # parallel start of rnx2rtkp
 params = get_params(programs, configs)
-processes = [subprocess.Popen(params[i].split()) for i in range(len(params))]
+FNULL = open(os.devnull, 'w')
+processes = [subprocess.Popen(params[i].split(), stderr=FNULL) for i in range(len(params))]
 exit_codes = [p.wait() for p in processes]
 
 print("\ntime_: {}".format(time.time() - start))
