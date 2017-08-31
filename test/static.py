@@ -8,7 +8,8 @@ import re
 import os
 import math
 import time
-
+import sys
+from prettytable import PrettyTable
 from scipy.optimize import fmin
 
 start = time.time()
@@ -69,7 +70,7 @@ def deviation_distance(x, tests, etalon):
         res.append(sum)
     return list(map(lambda x: x * 100 / len(etalon), res))
 
-def compare_rows(first, second):
+def compare_csv_rows(first, second):
     first = first.split(';')
     second = second.split(';')
     out = []
@@ -100,6 +101,35 @@ def compare_rows(first, second):
             out.append(word)
     return out
 
+def compare_rows(first, second):
+    out = []
+    for i in range(len(first)):
+        if type(first[i]) != str:
+            if i == 1 or i == 2 or i == 7:
+                num = int(second[i] - first[i])
+            else:
+                num = second[i] - first[i]
+            try:
+                if i >= (len(first) - 3):
+                    num = num * 100 / first[i]
+                if num >= 0 and i > 1:
+                    num = '+' + str(round(num, 3))
+                else:
+                    num = str(round(num, 3))
+            except ZeroDivisionError:
+                print("empty data\n")
+            out.append(num)
+        else:
+            word = first[i]
+
+            if word[-1] == 'm':
+                word = word[:-2]
+
+            if i >= (len(first) - 3):
+                word += ' %'
+            out.append(word)
+    return out
+
 def make_comparison_scv(first, second):
     first_csv = open(first, 'r')
     second_csv = open(second, 'r')
@@ -108,7 +138,7 @@ def make_comparison_scv(first, second):
     second_reader = list(csv.reader(second_csv))
     compare_writer = csv.writer(compare_csv, delimiter=';')
     for i in range(len(first_reader)):
-        compare_writer.writerow(compare_rows(first_reader[i][0], second_reader[i][0]))
+        compare_writer.writerow(compare_csv_rows(first_reader[i][0], second_reader[i][0]))
 
 sol_status = {
     0: "No solution",
@@ -118,6 +148,9 @@ sol_status = {
     4: "DGPS",
     5: "Single"
 }
+
+# working directory is RTKLIB/test
+os.chdir(os.path.dirname(sys.argv[0]))
 
 programs = [a[:-1] for a in open('test/exec.txt').readlines()]
 configs = [a[:-1] for a in open('test/config.txt').readlines()]
@@ -200,8 +233,51 @@ for j in range(len(sigma)):
     # for row in reader:
     # print(" ".join(row))
 
-make_comparison_scv('config_version_0.csv', 'config_version_1.csv')
+# make_comparison_scv('config_version_0.csv', 'config_version_1.csv')
 
 end = time.time()
 print("\ntime: {}".format(end - start))
 
+def make_html_table():
+    temporary_tables = [[], []]
+    for table in temporary_tables:
+        table.append(["Test number", "Point's number", "No solution", "Fixed %", "Float %",
+                                "SBAS %", "DGPS %", "Single", "Max deviation m", "Mean deviation m", "std m"])
+    compare_temp_table = []
+    for l in range(len(sigma)):
+        temporary_tables[l].append(all_tests_data[l])
+        for j in range(len(out_data[l])):
+            row = ["Test num. {0}".format(j), len(out_data[l][j])]
+            for i in range(0, 9):
+                try:
+                    if i == 0 or i == 5:
+                        row.append(out_data[l][j].count(i))
+                    elif i == 6:
+                        row.append(round(max(sigma[l][j]), 3))
+                    elif i == 7:
+                        row.append(round(numpy.mean(sigma[l][j]), 3))
+                    elif i == 8:
+                        row.append(round(numpy.std(sigma[l][j]), 3))
+                    else:
+                        row.append(round(100 * out_data[l][j].count(i) / len(out_data[l][j]), 3))
+                except ZeroDivisionError:
+                    print("empty data\n")
+            temporary_tables[l].append(row)
+    for i in range(len(temporary_tables[0])):
+        compare_temp_table.append(compare_rows(temporary_tables[0][i], temporary_tables[1][i]))
+        # should be OK
+    temporary_tables.append(compare_temp_table)
+    html_table = open('test_results.html', 'w')
+    table_names = ["config num. 0", "config num. 1", "configs comparison"]
+    for i in range(len(temporary_tables)):
+        table = PrettyTable()
+        for j in range(len(temporary_tables[i])):
+            if j == 0:
+                table.field_names = temporary_tables[i][j]
+                continue
+            table.add_row(temporary_tables[i][j])
+
+        html_table.write(table.get_html_string(attributes={"border":"1", "name":table_names[i], "class":"red_table"}))
+        print(table.get_string())
+        print()
+make_html_table()
